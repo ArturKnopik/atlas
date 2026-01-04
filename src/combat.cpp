@@ -87,10 +87,11 @@ CombatDamage Combat::getCombatDamage(const std::shared_ptr<Creature>& creature,
 			} else if (formulaType == COMBAT_FORMULA_SKILL) {
 				const auto& tool = player->getWeapon();
 				if (const auto& weapon = g_weapons->getWeapon(tool)) {
-					damage.primary.value =
-					    normal_random(minb, std::fma(weapon->getWeaponDamage(player, target, tool, true), maxa, maxb));
+					WeaponDamage weaponDamage = weapon->getWeaponDamage(player, target, tool, true);
+
+					damage.primary.value = normal_random(minb, std::fma(weaponDamage.primary, maxa, maxb));
 					damage.secondary.type = weapon->getElementType();
-					damage.secondary.value = weapon->getElementDamage(player, target, tool);
+					damage.secondary.value = normal_random(minb, std::fma(weaponDamage.secondary, maxa, maxb));
 				} else {
 					damage.primary.value = normal_random(minb, maxb);
 				}
@@ -1014,6 +1015,10 @@ void ValueCallback::getMinMaxValues(const std::shared_ptr<Player>& player, Comba
 	tfs::lua::setMetatable(L, -1, "Player");
 
 	int parameters = 1;
+
+	int32_t attackValue = 7;
+	int32_t elementValue = 0;
+
 	switch (type) {
 		case COMBAT_FORMULA_LEVELMAGIC: {
 			// onGetPlayerMinMaxValues(player, level, maglevel)
@@ -1028,7 +1033,6 @@ void ValueCallback::getMinMaxValues(const std::shared_ptr<Player>& player, Comba
 			const auto& tool = player->getWeapon();
 			std::shared_ptr<Item> item = nullptr;
 
-			int32_t attackValue = 7;
 			if (const auto& weapon = g_weapons->getWeapon(tool)) {
 				attackValue = tool->getAttack();
 				if (tool->getWeaponType() == WEAPON_AMMO) {
@@ -1037,13 +1041,11 @@ void ValueCallback::getMinMaxValues(const std::shared_ptr<Player>& player, Comba
 						attackValue += item->getAttack();
 					}
 				}
-
-				damage.secondary.type = weapon->getElementType();
-				damage.secondary.value = weapon->getElementDamage(player, nullptr, tool);
+				elementValue = weapon->getElementAttack();
 			}
 
 			tfs::lua::pushNumber(L, player->getWeaponSkill(item ? item : tool));
-			tfs::lua::pushNumber(L, attackValue);
+			tfs::lua::pushNumber(L, attackValue + elementValue);
 			tfs::lua::pushNumber(L, player->getAttackFactor());
 			parameters += 3;
 			break;
@@ -1060,7 +1062,16 @@ void ValueCallback::getMinMaxValues(const std::shared_ptr<Player>& player, Comba
 	if (lua_pcall(L, parameters, 2, 0) != 0) {
 		tfs::lua::reportError(L, tfs::lua::popString(L));
 	} else {
-		damage.primary.value = normal_random(tfs::lua::getNumber<int32_t>(L, -2), tfs::lua::getNumber<int32_t>(L, -1));
+		WeaponDamage min{};
+		WeaponDamage max{};
+		min.primary = tfs::lua::getNumber<int32_t>(L, -2);
+		redistributesWeaponDamage(min, attackValue, elementValue);
+
+		max.primary = tfs::lua::getNumber<int32_t>(L, -1);
+		redistributesWeaponDamage(max, attackValue, elementValue);
+
+		damage.primary.value = normal_random(min.primary, max.primary);
+		damage.secondary.value = normal_random(min.secondary, max.secondary);
 		lua_pop(L, 2);
 	}
 

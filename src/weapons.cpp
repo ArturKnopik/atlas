@@ -122,10 +122,15 @@ int32_t Weapons::getMaxMeleeDamage(int32_t attackSkill, int32_t attackValue)
 }
 
 // players
-int32_t Weapons::getMaxWeaponDamage(uint32_t level, int32_t attackSkill, int32_t attackValue, float attackFactor)
+WeaponDamage Weapons::getMaxWeaponDamage(uint32_t level, int32_t attackSkill, int32_t primaryAttackValue,
+                                         int32_t secondaryAttackValue, float attackFactor)
 {
-	return static_cast<int32_t>(
-	    std::round((level / 5) + (((((attackSkill / 4.) + 1) * (attackValue / 3.)) * 1.03) / attackFactor)));
+	int32_t totalAttack = primaryAttackValue + secondaryAttackValue;
+	WeaponDamage weaponDamage{};
+	weaponDamage.primary = static_cast<int32_t>(
+	    std::round((level / 5) + (((((attackSkill / 4.) + 1) * (totalAttack / 3.)) * 1.03) / attackFactor)));
+	redistributesWeaponDamage(weaponDamage, primaryAttackValue, secondaryAttackValue);
+	return weaponDamage;
 }
 
 void Weapon::configureWeapon(const ItemType& it) { id = it.id; }
@@ -247,7 +252,8 @@ bool Weapon::useFist(const std::shared_ptr<Player>& player, const std::shared_pt
 	int32_t attackSkill = player->getSkillLevel(SKILL_FIST);
 	int32_t attackValue = 7;
 
-	int32_t maxDamage = Weapons::getMaxWeaponDamage(player->getLevel(), attackSkill, attackValue, attackFactor);
+	WeaponDamage weaponDamage =
+	    Weapons::getMaxWeaponDamage(player->getLevel(), attackSkill, attackValue, 0, attackFactor);
 
 	CombatParams params;
 	params.combatType = COMBAT_PHYSICALDAMAGE;
@@ -257,7 +263,7 @@ bool Weapon::useFist(const std::shared_ptr<Player>& player, const std::shared_pt
 	CombatDamage damage;
 	damage.origin = ORIGIN_MELEE;
 	damage.primary.type = params.combatType;
-	damage.primary.value = -normal_random(0, maxDamage);
+	damage.primary.value = -normal_random(0, weaponDamage.primary);
 
 	Combat::doTargetCombat(player, target, damage, params);
 	if (!player->hasFlag(PlayerFlag_NotGainSkill) && player->getAddAttackSkill()) {
@@ -284,10 +290,15 @@ void Weapon::internalUseWeapon(const std::shared_ptr<Player>& player, const std:
 		} else {
 			damage.origin = ORIGIN_MELEE;
 		}
+
+		WeaponDamage weaponDamage = getWeaponDamage(player, target, item);
+
 		damage.primary.type = params.combatType;
-		damage.primary.value = (getWeaponDamage(player, target, item) * damageModifier) / 100;
+		damage.primary.value = (weaponDamage.primary * damageModifier) / 100;
 		damage.secondary.type = getElementType();
-		damage.secondary.value = getElementDamage(player, target, item);
+		if (damage.secondary.type != COMBAT_NONE) {
+			damage.secondary.value = (weaponDamage.secondary * damageModifier) / 100;
+		}
 		Combat::doTargetCombat(player, target, damage, params);
 	}
 
@@ -426,6 +437,8 @@ void Weapon::decrementItemCount(const std::shared_ptr<Item>& item)
 	}
 }
 
+CombatType_t Weapon::getElementType() const { return elementType; }
+
 void Weapon::addVocationWeaponSet(const std::string& vocationName)
 {
 	int32_t vocationId = g_vocations.getVocationId(vocationName);
@@ -499,38 +512,29 @@ bool WeaponMelee::getSkillType(const std::shared_ptr<const Player>& player, cons
 	return false;
 }
 
-int32_t WeaponMelee::getElementDamage(const std::shared_ptr<const Player>& player,
-                                      const std::shared_ptr<const Creature>&,
-                                      const std::shared_ptr<const Item>& item) const
-{
-	if (elementType == COMBAT_NONE) {
-		return 0;
-	}
-
-	int32_t attackSkill = player->getWeaponSkill(item);
-	int32_t attackValue = elementDamage;
-	float attackFactor = player->getAttackFactor();
-
-	int32_t maxValue = Weapons::getMaxWeaponDamage(player->getLevel(), attackSkill, attackValue, attackFactor);
-	return -normal_random(0, static_cast<int32_t>(maxValue * player->getVocation()->meleeDamageMultiplier));
-}
-
-int32_t WeaponMelee::getWeaponDamage(const std::shared_ptr<const Player>& player,
-                                     const std::shared_ptr<const Creature>&, const std::shared_ptr<const Item>& item,
-                                     bool maxDamage /*= false*/) const
+WeaponDamage WeaponMelee::getWeaponDamage(const std::shared_ptr<const Player>& player,
+                                          const std::shared_ptr<const Creature>&,
+                                          const std::shared_ptr<const Item>& item, bool maxDamage /*= false*/) const
 {
 	int32_t attackSkill = player->getWeaponSkill(item);
 	int32_t attackValue = std::max<int32_t>(0, item->getAttack());
 	float attackFactor = player->getAttackFactor();
 
-	int32_t maxValue =
-	    static_cast<int32_t>(Weapons::getMaxWeaponDamage(player->getLevel(), attackSkill, attackValue, attackFactor) *
-	                         player->getVocation()->meleeDamageMultiplier);
+	WeaponDamage weaponDamage =
+	    Weapons::getMaxWeaponDamage(player->getLevel(), attackSkill, attackValue, getElementAttack(), attackFactor);
+
+	weaponDamage.primary =
+	    static_cast<int32_t>(static_cast<float>(weaponDamage.primary) * player->getVocation()->meleeDamageMultiplier);
+	weaponDamage.secondary =
+	    static_cast<int32_t>(static_cast<float>(weaponDamage.secondary) * player->getVocation()->meleeDamageMultiplier);
 	if (maxDamage) {
-		return -maxValue;
+		return weaponDamage;
 	}
 
-	return -normal_random(0, maxValue);
+	weaponDamage.primary = -normal_random(0, weaponDamage.primary);
+	weaponDamage.secondary = -normal_random(0, weaponDamage.secondary);
+
+	return weaponDamage;
 }
 
 WeaponDistance::WeaponDistance(LuaScriptInterface* interface) : Weapon(interface)
@@ -713,40 +717,9 @@ bool WeaponDistance::useWeapon(const std::shared_ptr<Player>& player, const std:
 	return true;
 }
 
-int32_t WeaponDistance::getElementDamage(const std::shared_ptr<const Player>& player,
-                                         const std::shared_ptr<const Creature>& target,
-                                         const std::shared_ptr<const Item>& item) const
-{
-	if (elementType == COMBAT_NONE) {
-		return 0;
-	}
-
-	int32_t attackValue = elementDamage;
-	if (item->getWeaponType() == WEAPON_AMMO) {
-		if (const auto& weapon = player->getWeapon(true)) {
-			attackValue += weapon->getAttack();
-		}
-	}
-
-	int32_t attackSkill = player->getSkillLevel(SKILL_DISTANCE);
-	float attackFactor = player->getAttackFactor();
-
-	int32_t minValue = 0;
-	int32_t maxValue = Weapons::getMaxWeaponDamage(player->getLevel(), attackSkill, attackValue, attackFactor);
-	if (target) {
-		if (target->asPlayer()) {
-			minValue = static_cast<int32_t>(std::ceil(player->getLevel() * 0.1));
-		} else {
-			minValue = static_cast<int32_t>(std::ceil(player->getLevel() * 0.2));
-		}
-	}
-
-	return -normal_random(minValue, static_cast<int32_t>(maxValue * player->getVocation()->distDamageMultiplier));
-}
-
-int32_t WeaponDistance::getWeaponDamage(const std::shared_ptr<const Player>& player,
-                                        const std::shared_ptr<const Creature>& target,
-                                        const std::shared_ptr<const Item>& item, bool maxDamage /*= false*/) const
+WeaponDamage WeaponDistance::getWeaponDamage(const std::shared_ptr<const Player>& player,
+                                             const std::shared_ptr<const Creature>& target,
+                                             const std::shared_ptr<const Item>& item, bool maxDamage /*= false*/) const
 {
 	int32_t attackValue = item->getAttack();
 
@@ -759,11 +732,16 @@ int32_t WeaponDistance::getWeaponDamage(const std::shared_ptr<const Player>& pla
 	int32_t attackSkill = player->getSkillLevel(SKILL_DISTANCE);
 	float attackFactor = player->getAttackFactor();
 
-	int32_t maxValue =
-	    static_cast<int32_t>(Weapons::getMaxWeaponDamage(player->getLevel(), attackSkill, attackValue, attackFactor) *
-	                         player->getVocation()->distDamageMultiplier);
+	WeaponDamage weaponDamage =
+	    Weapons::getMaxWeaponDamage(player->getLevel(), attackSkill, attackValue, getElementAttack(), attackFactor);
+
+	weaponDamage.primary =
+	    static_cast<int32_t>(static_cast<float>(weaponDamage.primary) * player->getVocation()->distDamageMultiplier);
+	weaponDamage.secondary =
+	    static_cast<int32_t>(static_cast<float>(weaponDamage.secondary) * player->getVocation()->distDamageMultiplier);
+
 	if (maxDamage) {
-		return -maxValue;
+		return weaponDamage;
 	}
 
 	int32_t minValue;
@@ -776,7 +754,10 @@ int32_t WeaponDistance::getWeaponDamage(const std::shared_ptr<const Player>& pla
 	} else {
 		minValue = 0;
 	}
-	return -normal_random(minValue, maxValue);
+
+	weaponDamage.primary = -normal_random(minValue, weaponDamage.primary);
+	weaponDamage.secondary = -normal_random(minValue, weaponDamage.secondary);
+	return weaponDamage;
 }
 
 bool WeaponDistance::getSkillType(const std::shared_ptr<const Player>& player, const std::shared_ptr<const Item>&,
@@ -854,11 +835,14 @@ void WeaponWand::configureWeapon(const ItemType& it)
 	Weapon::configureWeapon(it);
 }
 
-int32_t WeaponWand::getWeaponDamage(const std::shared_ptr<const Player>&, const std::shared_ptr<const Creature>&,
-                                    const std::shared_ptr<const Item>&, bool maxDamage /*= false*/) const
+WeaponDamage WeaponWand::getWeaponDamage(const std::shared_ptr<const Player>&, const std::shared_ptr<const Creature>&,
+                                         const std::shared_ptr<const Item>&, bool maxDamage /*= false*/) const
 {
+	WeaponDamage weaponDamage;
 	if (maxDamage) {
-		return -maxChange;
+		weaponDamage.primary = -maxChange;
+		return weaponDamage;
 	}
-	return -normal_random(minChange, maxChange);
+	weaponDamage.primary = -normal_random(minChange, maxChange);
+	return weaponDamage;
 }

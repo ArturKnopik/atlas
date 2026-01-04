@@ -8,6 +8,8 @@
 #include "enums.h"
 #include "position.h"
 
+struct WeaponDamage;
+
 void printXMLError(const std::string& where, std::string_view fileName, const pugi::xml_parse_result& result);
 
 std::string transformToSHA1(std::string_view input);
@@ -65,6 +67,8 @@ int64_t OTSYS_TIME();
 SpellGroup_t stringToSpellGroup(const std::string& value);
 
 std::array<Direction, 4> getShuffleDirections();
+
+void redistributesWeaponDamage(WeaponDamage& weaponDamage, int32_t primaryAttack, int32_t secondaryAttack);
 
 namespace tfs::views {
 

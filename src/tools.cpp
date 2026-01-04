@@ -4,6 +4,7 @@
 #include "otpch.h"
 
 #include "tools.h"
+#include "weapons.h"
 
 #include <chrono>
 #include <openssl/evp.h>
@@ -1106,4 +1107,17 @@ std::array<Direction, 4> getShuffleDirections()
 	auto dirList = std::array{DIRECTION_NORTH, DIRECTION_WEST, DIRECTION_EAST, DIRECTION_SOUTH};
 	std::shuffle(dirList.begin(), dirList.end(), getRandomGenerator());
 	return dirList;
+}
+
+/*
+ * This function redistributes the weapon damage value according to the
+ * proportion between primary and secondary attack values.
+ */
+void redistributesWeaponDamage(WeaponDamage& weaponDamage, int32_t primaryAttack, int32_t secondaryAttack)
+{
+	int32_t totalAttack = primaryAttack + secondaryAttack;
+	double secondaryRation = static_cast<double>(secondaryAttack) / totalAttack;
+
+	weaponDamage.secondary = weaponDamage.primary * secondaryRation;
+	weaponDamage.primary -= weaponDamage.secondary;
 }
