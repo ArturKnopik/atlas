@@ -38434,6 +38434,7 @@
 	<item id="28412" name="strange colours" />
 	<item id="28413" article="a" name="diamond arrow">
 		<attribute key="weight" value="80" />
+		<attribute key="slotType" value="ammo" />
 		<attribute key="weaponType" value="ammunition" />
 		<attribute key="ammoType" value="arrow" />
 		<attribute key="attack" value="37" />
@@ -38442,6 +38443,7 @@
 	</item>
 	<item id="28414" article="a" name="spectral bolt">
 		<attribute key="weight" value="90" />
+		<attribute key="slotType" value="ammo" />
 		<attribute key="weaponType" value="ammunition" />
 		<attribute key="ammoType" value="bolt" />
 		<attribute key="attack" value="78" />
@@ -42028,6 +42030,7 @@
 	</item>
 	<item id="38557" article="a" name="diamond arrow">
 		<attribute key="weight" value="80" />
+		<attribute key="slotType" value="ammo" />
 		<attribute key="weaponType" value="ammunition" />
 		<attribute key="ammoType" value="arrow" />
 		<attribute key="attack" value="37" />
@@ -42036,6 +42039,7 @@
 	</item>
 	<item id="38558" article="a" name="spectral bolt">
 		<attribute key="weight" value="90" />
+		<attribute key="slotType" value="ammo" />
 		<attribute key="weaponType" value="ammunition" />
 		<attribute key="ammoType" value="bolt" />
 		<attribute key="attack" value="78" />

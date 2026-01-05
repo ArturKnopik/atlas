@@ -722,7 +722,7 @@ WeaponDamage WeaponDistance::getWeaponDamage(const std::shared_ptr<const Player>
                                              const std::shared_ptr<const Item>& item, bool maxDamage /*= false*/) const
 {
 	int32_t attackValue = item->getAttack();
-
+	int32_t elementValue = elementDamage;
 	if (item->getWeaponType() == WEAPON_AMMO) {
 		if (const auto& weapon = player->getWeapon(true)) {
 			attackValue += weapon->getAttack();
@@ -733,7 +733,7 @@ WeaponDamage WeaponDistance::getWeaponDamage(const std::shared_ptr<const Player>
 	float attackFactor = player->getAttackFactor();
 
 	WeaponDamage weaponDamage =
-	    Weapons::getMaxWeaponDamage(player->getLevel(), attackSkill, attackValue, getElementAttack(), attackFactor);
+	    Weapons::getMaxWeaponDamage(player->getLevel(), attackSkill, attackValue, elementValue, attackFactor);
 
 	weaponDamage.primary =
 	    static_cast<int32_t>(static_cast<float>(weaponDamage.primary) * player->getVocation()->distDamageMultiplier);

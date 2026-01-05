@@ -1,4 +1,6 @@
 local weapon = Weapon(WEAPON_AMMO)
+weapon:id(23839)
 weapon:action("removecount")
-weapon:level(20)
+weapon:wieldUnproperly(false)
+weapon:level(1)
 weapon:register()

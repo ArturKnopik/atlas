@@ -20,6 +20,7 @@ function weapon.onUseWeapon(player, variant)
 	return combat:execute(player, variant)
 end
 
+weapon:id(38557)
 weapon:action("removecount")
 weapon:level(150)
 weapon:register()
