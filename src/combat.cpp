@@ -1042,6 +1042,7 @@ void ValueCallback::getMinMaxValues(const std::shared_ptr<Player>& player, Comba
 					}
 				}
 				elementValue = weapon->getElementAttack();
+				damage.secondary.type = weapon->getElementType();
 			}
 
 			tfs::lua::pushNumber(L, player->getWeaponSkill(item ? item : tool));
