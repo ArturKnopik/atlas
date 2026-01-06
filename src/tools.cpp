@@ -1115,9 +1115,13 @@ std::array<Direction, 4> getShuffleDirections()
  */
 void redistributesWeaponDamage(WeaponDamage& weaponDamage, int32_t primaryAttack, int32_t secondaryAttack)
 {
-	int32_t totalAttack = primaryAttack + secondaryAttack;
-	double secondaryRation = static_cast<double>(secondaryAttack) / totalAttack;
+	if (secondaryAttack == 0) {
+		return;
+	}
 
-	weaponDamage.secondary = weaponDamage.primary * secondaryRation;
+	int32_t totalAttack = primaryAttack + secondaryAttack;
+	double secondaryRatio = static_cast<double>(secondaryAttack) / totalAttack;
+
+	weaponDamage.secondary = weaponDamage.primary * secondaryRatio;
 	weaponDamage.primary -= weaponDamage.secondary;
 }
